@@ -1,0 +1,295 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE sqlMap PUBLIC "-//iBATIS.com//DTD SQL Map 2.0//EN" "http://www.ibatis.com/dtd/sql-map-2.dtd">
+
+<sqlMap namespace="Tp">
+
+	<typeAlias  alias="egovMap" type="egovframework.rte.psl.dataaccess.util.EgovMap"/>
+	<typeAlias  alias="userVO" type="egovframework.example.tp.service.UserVO"/>
+	<typeAlias  alias="boardVO" type="egovframework.example.tp.service.BoardVO"/>
+	<typeAlias  alias="searchVO2" type="egovframework.example.tp.service.TpDefaultVO"/>
+	<typeAlias  alias="postingVO" type="egovframework.example.tp.service.PostingVO"/>
+
+	<insert id="tpDAO.insertUser">
+		INSERT INTO USERTEST
+			(	ID
+				, PW
+				, NAME
+				, DATE
+				, AUTH
+				)
+		VALUES(	#id#
+				, #pw#
+				, #name#
+				, sysdate()
+				, 'U' 
+		)
+	</insert>
+	
+	<select id="tpDAO.checkUserLogin" parameterClass="userVO" resultClass="int">
+		SELECT COUNT(*) FROM USERTEST WHERE ID=#id# AND PW=#pw#
+	</select>
+	
+	<select id="tpDAO.selectUserInfo" parameterClass="userVO" resultClass="userVO">
+		SELECT ID, NAME, DATE, AUTH, BWA, UA, DA, BRWA, RA, BAA, MA  FROM USERTEST WHERE ID = #id#
+	</select>
+	
+	<select id="tpDAO.selectBoardList" parameterClass="searchVO2" resultClass="egovMap">
+			WITH RECURSIVE tmp1 AS
+(
+    SELECT bwriter, bno, btitle, bcontent, bdate, hit, ncheck, 1 AS lvl, parent_bno, rp, CAST(bno AS CHAR(10000)) as path, secpw, seccheck, alarm, id
+    FROM boardtest WHERE parent_bno=0
+	
+    UNION ALL
+
+    SELECT b.bwriter, b.bno, b.btitle, b.bcontent, b.bdate, b.hit, b.ncheck, t.lvl+1 AS lvl, b.parent_bno,  b.rp, CONCAT(t.path,',',b.bno) AS path, b.secpw, b.seccheck, b.alarm, b.id
+    FROM tmp1 t JOIN boardtest b ON t.bno=b.parent_bno
+)
+
+SELECT bwriter, bno, CONCAT(REPEAT(' ', lvl*4), btitle) btitle, bcontent, bdate, hit, ncheck, lvl, parent_bno, rp, path, secpw, seccheck, alarm, id
+FROM tmp1 
+		WHERE 1=1
+		<isEqual prepend="AND" property="ncheck" compareValue="0">
+				NCHECK IN ('Y' ,'N')
+		</isEqual>
+		<isEqual prepend="AND" property="ncheck" compareValue="1">
+				NCHECK NOT IN ('N')
+		</isEqual>
+		<isEqual prepend="AND" property="searchCondition" compareValue="0">
+				BWRITER LIKE CONCAT("%", #searchKeyword#, "%")
+		</isEqual>
+		<isEqual prepend="AND" property="searchCondition" compareValue="1">
+				BTITLE LIKE CONCAT("%", #searchKeyword#, "%")
+		</isEqual>
+		<isEqual prepend="AND" property="searchCondition" compareValue="2">
+				BCONTENT LIKE CONCAT("%", #searchKeyword#, "%")
+		</isEqual>
+		<isEqual prepend="AND" property="searchCondition" compareValue="3">
+				BWRITER LIKE CONCAT("%", #searchKeyword#, "%")
+				OR
+				BTITLE LIKE CONCAT("%", #searchKeyword#, "%")
+				OR
+				BCONTENT LIKE CONCAT("%", #searchKeyword#, "%")
+		</isEqual>
+				ORDER BY rp desc, path ASC
+				LIMIT #recordCountPerPage# OFFSET #firstIndex#
+	</select>
+	
+	<select id="tpDAO.selectBoardListTotCnt" parameterClass="searchVO2" resultClass="int">
+		SELECT COUNT(*) totcnt
+		FROM BOARDTEST
+		WHERE 1=1
+		<isEqual prepend="AND" property="ncheck" compareValue="0">
+				NCHECK IN ('Y' ,'N')
+		</isEqual>
+		<isEqual prepend="AND" property="ncheck" compareValue="1">
+				NCHECK NOT IN ('N')
+		</isEqual>
+		<isEqual prepend="AND" property="searchCondition" compareValue="0">
+				BWRITER LIKE CONCAT("%", #searchKeyword#, "%")
+		</isEqual>
+		<isEqual prepend="AND" property="searchCondition" compareValue="1">
+				BTITLE LIKE CONCAT("%", #searchKeyword#, "%")
+		</isEqual>
+		<isEqual prepend="AND" property="searchCondition" compareValue="2">
+				BCONTENT LIKE CONCAT("%", #searchKeyword#, "%")
+		</isEqual>
+		<isEqual prepend="AND" property="searchCondition" compareValue="3">
+				BWRITER LIKE CONCAT("%", #searchKeyword#, "%")
+				OR
+				BTITLE LIKE CONCAT("%", #searchKeyword#, "%")
+				OR
+				BCONTENT LIKE CONCAT("%", #searchKeyword#, "%")
+		</isEqual>
+	</select>
+	
+	<select id="tpDAO.findbNo" resultClass="int">
+		SELECT MAX(BNO)+1 FROM BOARDTEST
+	</select>
+	
+	<select id="tpDAO.findpNo" resultClass="int">
+		SELECT MAX(pid)+1 FROM POSTING
+	</select>
+	
+	<insert id="tpDAO.insertArticle" parameterClass="boardVO">
+		INSERT INTO BOARDTEST (
+					BNO, 
+					BWRITER, 
+					BTITLE, 
+					BCONTENT, 
+					BDATE, 
+					NCHECK, 
+					PARENT_BNO,
+					RP,
+					SECPW,
+					SECCHECK,
+					ID
+					)
+		VALUES
+		(	 #bno# 
+			, #bwriter#
+			, #btitle#
+			, #bcontent#
+			, sysdate()
+			, #ncheck#
+			, #parent_bno#
+			, #rp#
+			, #secpw#
+			, #seccheck#
+			, #id#
+			)
+	</insert>
+	
+	<select id="tpDAO.selectArticleOne" parameterClass="boardVO" resultClass="boardVO">
+		SELECT BNO, BWRITER, BTITLE, BCONTENT, BDATE, HIT, NCHECK, PARENT_BNO, RP, SECPW, SECCHECK, ALARM
+		FROM BOARDTEST
+		WHERE BNO = #bno#
+	</select>
+	
+	<update id="tpDAO.selectArticleUpdate" parameterClass="boardVO">
+		UPDATE BOARDTEST
+		SET BTITLE = #btitle#, BCONTENT = #bcontent#, NCHECK = #ncheck#, #secpw#, #seccheck#, #alarm#
+		WHERE BNO = #bno#
+	</update>
+	
+	<delete id="tpDAO.selectArticleDelete" parameterClass="boardVO">
+		DELETE FROM BOARDTEST
+		WHERE BNO = #bno#
+	</delete>
+	
+	<update id="tpDAO.selectArticleHitUpdate" parameterClass="boardVO">
+		UPDATE BOARDTEST
+		SET HIT = HIT + 1
+		WHERE BNO = #bno# 
+	</update>
+	
+	<select id="tpDAO.selectNoticeArticleList" resultClass="boardVO">
+		SELECT BNO, BWRITER, BTITLE, BCONTENT, BDATE, HIT, NCHECK, PARENT_BNO, RP, SECPW, SECCHECK, ALARM
+		FROM BOARDTEST
+		WHERE NCHECK = 'Y'
+	</select>
+	
+	<select id="tpDAO.idCheck" resultClass="int" parameterClass="userVO">
+		SELECT COUNT(*) 
+		FROM USERTEST
+		WHERE ID = #id#
+	</select>
+	
+	<insert id="tpDAO.insertBoardReply" parameterClass="boardVO">
+		INSERT INTO BOARDTEST (
+					BNO, 
+					BWRITER, 
+					BTITLE, 
+					BCONTENT, 
+					BDATE, 
+					NCHECK, 
+					PARENT_BNO,
+					RP
+					)
+		VALUES(
+			   	  #bno#
+				, #bwriter#
+				, #btitle#
+				, #bcontent#
+				, sysdate()
+				, #ncheck#
+				, #parent_bno#
+				, #rp#
+				)
+	</insert>
+	
+	<insert id="tpDAO.insertPosting" parameterClass="postingVO">
+		INSERT INTO POSTING
+		VALUE(
+			#pid#, 
+			#pwriter#,
+			#pcontent#,
+			SYSDATE(),
+			'Y', 
+			#bno#
+			)
+	</insert>
+	
+	<select id="tpDAO.selectPostingList" parameterClass="boardVO" resultClass="postingVO">
+		SELECT PID, PWRITER, PCONTENT, PDATE, PAUTH, BNO 
+		FROM POSTING 
+		WHERE BNO=#bno#
+		ORDER BY PID DESC
+	</select>
+	
+	<delete id="tpDAO.deletePosting" parameterClass="postingVO">
+		DELETE FROM POSTING WHERE PID = #pid#
+	</delete>
+	
+	<update id="tpDAO.updatePosting" parameterClass="postingVO">
+		UPDATE POSTING
+		SET PCONTENT = #pcontent#
+		WHERE PID = #pid#
+	</update>
+	<!-- <update id="tpDAO.updateBoardReplyOrder" parameterClass="boardVO">
+		UPDATE BOARDTEST
+		SET REPLY_ORDER = REPLY_ORDER + 1
+		WHERE BNO_REPLY = #bno_reply# AND REPLY_ORDER > #reply_order# 
+	</update> -->
+	
+	<select id="tpDAO.selectUserList" resultClass="userVO" parameterClass="searchVO2">
+		SELECT ID, PW, NAME, DATE, AUTH, BWA, UA, DA, BRWA, RA, BAA, MA 
+		FROM USERTEST
+		WHERE 1=1
+		<isEqual prepend="AND" property="searchCondition" compareValue="0">
+				ID LIKE CONCAT("%", #searchKeyword#, "%")
+		</isEqual>
+		<isEqual prepend="AND" property="searchCondition" compareValue="1">
+				NAME LIKE CONCAT("%", #searchKeyword#, "%")
+		</isEqual>
+		ORDER BY date DESC
+		LIMIT #recordCountPerPage# OFFSET #firstIndex#
+	</select>
+	
+	<select id="tpDAO.selectUserListTotCnt" parameterClass="searchVO2" resultClass="int">
+		SELECT COUNT(*) totcnt
+		FROM USERTEST
+		WHERE 1=1
+		<isEqual prepend="AND" property="searchCondition" compareValue="0">
+				ID LIKE CONCAT("%", #searchKeyword#, "%")
+		</isEqual>
+		<isEqual prepend="AND" property="searchCondition" compareValue="1">
+				NAME LIKE CONCAT("%", #searchKeyword#, "%")
+		</isEqual>
+	</select>
+	
+	<update id="tpDAO.updateUserAuth" parameterClass="userVO">
+		UPDATE USERTEST
+		SET BWA = #bwa#
+			, UA = #ua#
+			, DA = #da#
+			, BRWA = #brwa#
+			, RA = #ra#
+			, BAA = #baa#
+			, MA = #ma#
+		WHERE ID = #id#
+	</update>
+	
+	<select id="tpDAO.boardPwCheck" resultClass="int" parameterClass="boardVO">
+		SELECT COUNT(*) FROM BOARDTEST WHERE BNO = #bno# AND SECPW = #secpw#
+	</select>
+	
+	<!-- 읽지 않은 보드 목록 -->
+	<select id="tpDAO.selectBoardAlarmMessage" resultClass="boardVO" parameterClass="String">
+		SELECT BNO FROM BOARDTEST WHERE BNO NOT IN (SELECT BNO FROM BOARDLOG WHERE ID = #id#)
+	</select>
+	
+	<select id="tpDAO.selectBoardAlarmMessageCnt" resultClass="int" parameterClass="String">
+		SELECT COUNT(BNO) FROM BOARDTEST WHERE BNO NOT IN (SELECT BNO FROM BOARDLOG WHERE ID = #id#)
+	</select>
+	
+	<insert id="tpDAO.insertBoardLog" parameterClass="boardVO">
+		INSERT INTO boardlog
+		VALUES(#bno#, #id#)
+	</insert>
+	
+	<select id="tpDAO.selectBoardAlarmList" parameterClass="String" resultClass="boardVO">
+		SELECT BNO, BWRITER, BTITLE, BCONTENT, BDATE, HIT, NCHECK, PARENT_BNO, RP, SECPW, SECCHECK, ALARM, ID
+		FROM BOARDTEST
+		WHERE BNO IN (SELECT BNO FROM BOARDTEST WHERE BNO NOT IN (SELECT BNO FROM BOARDLOG WHERE ID = #id#))
+	</select>
+</sqlMap>
